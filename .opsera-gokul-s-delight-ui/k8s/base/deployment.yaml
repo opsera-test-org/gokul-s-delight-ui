@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gokul-s-delight-ui
+  namespace: opsera-gokul-s-delight-ui-dev
+  labels:
+    app: gokul-s-delight-ui
+    tenant: opsera
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gokul-s-delight-ui
+  template:
+    metadata:
+      labels:
+        app: gokul-s-delight-ui
+        tenant: opsera
+    spec:
+      serviceAccountName: gokul-s-delight-ui
+      containers:
+      - name: gokul-s-delight-ui
+        image: PLACEHOLDER_ECR_URI
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: gokul-s-delight-ui-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      imagePullSecrets:
+      - name: ecr-registry-secret

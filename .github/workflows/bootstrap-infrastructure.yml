@@ -1,0 +1,186 @@
+name: Bootstrap Infrastructure - gokul-s-delight-ui
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: 'AWS Region'
+        required: true
+        default: 'us-west-2'
+        type: choice
+        options:
+          - us-west-2
+          - us-east-1
+          - eu-west-1
+      hub_cluster:
+        description: 'Hub Cluster Name (ArgoCD)'
+        required: true
+        default: 'argocd-usw2'
+      spoke_cluster:
+        description: 'Spoke Cluster Name (Application)'
+        required: true
+        default: 'opsera-usw2-np'
+
+env:
+  APP_NAME: gokul-s-delight-ui
+  TENANT: opsera
+  NAMESPACE: opsera-gokul-s-delight-ui-dev
+
+jobs:
+  bootstrap:
+    name: Bootstrap Infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ inputs.aws_region }}
+
+    - name: Get AWS Account ID
+      id: aws-account
+      run: |
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+        echo "✅ AWS Account ID: $AWS_ACCOUNT_ID"
+
+    - name: Check ECR Repository
+      id: check-ecr
+      run: |
+        if aws ecr describe-repositories --repository-names ${{ env.APP_NAME }} --region ${{ inputs.aws_region }} 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ ECR repository '${{ env.APP_NAME }}' already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️  ECR repository '${{ env.APP_NAME }}' does not exist"
+        fi
+
+    - name: Create ECR Repository
+      if: steps.check-ecr.outputs.exists == 'false'
+      run: |
+        aws ecr create-repository \
+          --repository-name ${{ env.APP_NAME }} \
+          --region ${{ inputs.aws_region }} \
+          --image-scanning-configuration scanOnPush=true \
+          --encryption-configuration encryptionType=AES256 \
+          --tags Key=tenant,Value=${{ env.TENANT }} Key=app,Value=${{ env.APP_NAME }} Key=managed-by,Value=github-actions
+        echo "✅ ECR repository created: ${{ env.APP_NAME }}"
+
+    - name: Configure kubeconfig for Spoke Cluster
+      run: |
+        aws eks update-kubeconfig \
+          --region ${{ inputs.aws_region }} \
+          --name ${{ inputs.spoke_cluster }} \
+          --alias ${{ inputs.spoke_cluster }}
+        echo "✅ Kubeconfig updated for spoke cluster: ${{ inputs.spoke_cluster }}"
+
+    - name: Create Namespace on Spoke
+      run: |
+        if kubectl get namespace ${{ env.NAMESPACE }} --context=${{ inputs.spoke_cluster }} 2>/dev/null; then
+          echo "✅ Namespace '${{ env.NAMESPACE }}' already exists"
+        else
+          kubectl create namespace ${{ env.NAMESPACE }} --context=${{ inputs.spoke_cluster }}
+          kubectl label namespace ${{ env.NAMESPACE }} \
+            tenant=${{ env.TENANT }} \
+            app=${{ env.APP_NAME }} \
+            environment=dev \
+            managed-by=argocd \
+            --context=${{ inputs.spoke_cluster }}
+          echo "✅ Namespace created: ${{ env.NAMESPACE }}"
+        fi
+
+    - name: Create ECR Secret on Spoke
+      run: |
+        AWS_ACCOUNT_ID=${{ steps.aws-account.outputs.account_id }}
+        ECR_TOKEN=$(aws ecr get-login-password --region ${{ inputs.aws_region }})
+        
+        kubectl delete secret ecr-registry-secret \
+          --namespace=${{ env.NAMESPACE }} \
+          --context=${{ inputs.spoke_cluster }} \
+          --ignore-not-found=true
+        
+        kubectl create secret docker-registry ecr-registry-secret \
+          --docker-server=$AWS_ACCOUNT_ID.dkr.ecr.${{ inputs.aws_region }}.amazonaws.com \
+          --docker-username=AWS \
+          --docker-password=$ECR_TOKEN \
+          --namespace=${{ env.NAMESPACE }} \
+          --context=${{ inputs.spoke_cluster }}
+        
+        echo "✅ ECR secret created in namespace: ${{ env.NAMESPACE }}"
+
+    - name: Update Manifests with AWS Account ID
+      run: |
+        AWS_ACCOUNT_ID=${{ steps.aws-account.outputs.account_id }}
+        
+        # Update serviceaccount.yaml
+        sed -i "s/PLACEHOLDER_AWS_ACCOUNT_ID/$AWS_ACCOUNT_ID/g" \
+          .opsera-${{ env.APP_NAME }}/k8s/base/serviceaccount.yaml
+        
+        echo "✅ Updated serviceaccount.yaml with AWS Account ID"
+
+    - name: Commit Updated Manifests
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        if git diff --quiet; then
+          echo "✅ No changes to commit"
+        else
+          git add .opsera-${{ env.APP_NAME }}/k8s/base/serviceaccount.yaml
+          git commit -m "chore: update AWS Account ID in serviceaccount [skip ci]"
+          git pull --rebase origin main || true
+          git push origin main
+          echo "✅ Committed updated manifests"
+        fi
+
+    - name: Configure kubeconfig for Hub Cluster
+      run: |
+        aws eks update-kubeconfig \
+          --region ${{ inputs.aws_region }} \
+          --name ${{ inputs.hub_cluster }} \
+          --alias ${{ inputs.hub_cluster }}
+        echo "✅ Kubeconfig updated for hub cluster: ${{ inputs.hub_cluster }}"
+
+    - name: Create/Update ArgoCD Application
+      run: |
+        kubectl apply -f .opsera-${{ env.APP_NAME }}/argocd/dev/application.yaml \
+          --context=${{ inputs.hub_cluster }}
+        echo "✅ ArgoCD application created/updated: ${{ env.APP_NAME }}-dev"
+
+    - name: Trigger ArgoCD Sync
+      run: |
+        kubectl patch application ${{ env.APP_NAME }}-dev \
+          --namespace=argocd \
+          --type=merge \
+          --patch='{"operation": {"initiatedBy": {"username": "github-actions"}, "sync": {"revision": "main"}}}' \
+          --context=${{ inputs.hub_cluster }} || true
+        
+        echo "✅ ArgoCD sync triggered for ${{ env.APP_NAME }}-dev"
+
+    - name: Bootstrap Summary
+      run: |
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "✅ BOOTSTRAP COMPLETE"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "📦 ECR Repository: ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ inputs.aws_region }}.amazonaws.com/${{ env.APP_NAME }}"
+        echo "🎯 Namespace: ${{ env.NAMESPACE }}"
+        echo "🔐 ECR Secret: Created on spoke cluster"
+        echo "🚀 ArgoCD App: ${{ env.APP_NAME }}-dev"
+        echo ""
+        echo "NEXT STEPS:"
+        echo "1. Trigger deploy-dev workflow to build and deploy"
+        echo "2. Monitor deployment: kubectl get pods -n ${{ env.NAMESPACE }}"
+        echo "3. Check ArgoCD: https://${{ inputs.hub_cluster }}.agent.opsera.dev"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

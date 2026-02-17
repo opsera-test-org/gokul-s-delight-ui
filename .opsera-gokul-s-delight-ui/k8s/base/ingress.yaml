@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gokul-s-delight-ui
+  namespace: opsera-gokul-s-delight-ui-dev
+  labels:
+    app: gokul-s-delight-ui
+    tenant: opsera
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: gokul-s-delight-ui-dev.agent.opsera.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gokul-s-delight-ui
+            port:
+              number: 80

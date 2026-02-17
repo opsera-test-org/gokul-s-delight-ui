@@ -1,0 +1,62 @@
+apiVersion: opsera.io/v1
+kind: OpseraConfig
+metadata:
+  name: gokul-s-delight-ui
+  tenant: opsera
+  createdAt: "2026-02-17T00:00:00Z"
+  version: "0.932"
+
+spec:
+  application:
+    name: gokul-s-delight-ui
+    tenant: opsera
+    repository: https://github.com/opsera-test-org/gokul-s-delight-ui.git
+    framework: vite-react-typescript
+
+  cloud:
+    provider: aws
+    region: us-west-2
+    regionShort: usw2
+
+  clusters:
+    hub:
+      name: argocd-usw2
+      server: argocd-usw2.agent.opsera.dev
+    spoke:
+      name: opsera-usw2-np
+
+  environments:
+    dev:
+      namespace: opsera-gokul-s-delight-ui-dev
+      domain: agent.opsera.dev
+      url: https://gokul-s-delight-ui-dev.agent.opsera.dev
+      branch: main
+      deploymentStrategy: rolling
+      replicas: 2
+
+  integrations:
+    security:
+      gitleaks:
+        enabled: true
+        mode: warn
+      grype:
+        enabled: true
+        mode: warn
+        severityThreshold: high
+    monitoring:
+      prometheus: false
+      newrelic: false
+      datadog: false
+    notifications:
+      slack: false
+      jira: false
+
+  cicd:
+    pipeline: v2.4
+    stages: 11
+    features:
+    - security-scanning
+    - vulnerability-scanning
+    - gitops
+    - automated-sync
+    - deployment-landscape
