@@ -1,33 +1,38 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gokul-s-delight-ui
-  namespace: opsera-gokul-s-delight-ui-dev
+  name: gokul-hello
+  namespace: opsera-gokul-hello-dev
   labels:
-    app: gokul-s-delight-ui
+    app: gokul-hello
     tenant: opsera
+    environment: dev
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: gokul-s-delight-ui
+      app: gokul-hello
   template:
     metadata:
       labels:
-        app: gokul-s-delight-ui
+        app: gokul-hello
         tenant: opsera
+        environment: dev
     spec:
-      serviceAccountName: gokul-s-delight-ui
+      serviceAccountName: gokul-hello
+      imagePullSecrets:
+        - name: ecr-registry-secret
       containers:
-      - name: gokul-s-delight-ui
+      - name: gokul-hello
         image: PLACEHOLDER_ECR_URI
         imagePullPolicy: Always
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 8080
           protocol: TCP
         envFrom:
         - configMapRef:
-            name: gokul-s-delight-ui-config
+            name: gokul-hello-config
         resources:
           requests:
             memory: "128Mi"
@@ -37,15 +42,15 @@ spec:
             cpu: "200m"
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
@@ -53,10 +58,10 @@ spec:
           failureThreshold: 3
         startupProbe:
           httpGet:
-            path: /
+            path: /health
             port: 8080
           initialDelaySeconds: 0
-          periodSeconds: 5
+          periodSeconds: 2
           timeoutSeconds: 3
           failureThreshold: 30
         securityContext:
@@ -66,6 +71,4 @@ spec:
           readOnlyRootFilesystem: false
           capabilities:
             drop:
-            - ALL
-      imagePullSecrets:
-      - name: ecr-registry-secret
+              - ALL

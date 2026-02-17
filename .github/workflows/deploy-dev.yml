@@ -1,4 +1,4 @@
-name: Deploy to Dev - gokul-s-delight-ui
+name: Deploy to Dev - gokul-hello
 
 on:
   push:
@@ -21,10 +21,10 @@ on:
         default: false
 
 env:
-  APP_NAME: gokul-s-delight-ui
+  APP_NAME: gokul-hello
   TENANT: opsera
   ENVIRONMENT: dev
-  NAMESPACE: opsera-gokul-s-delight-ui-dev
+  NAMESPACE: opsera-gokul-hello-dev
   AWS_REGION: us-west-2
   HUB_CLUSTER: argocd-usw2
   SPOKE_CLUSTER: opsera-usw2-np

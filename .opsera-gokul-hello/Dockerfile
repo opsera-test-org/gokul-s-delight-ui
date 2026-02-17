@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for build)
+# Install dependencies (including devDependencies for build)
 RUN npm ci
 
 # Copy source code
@@ -23,7 +23,7 @@ FROM nginxinc/nginx-unprivileged:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY .opsera-gokul-s-delight-ui/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 8080 (non-root)
 EXPOSE 8080

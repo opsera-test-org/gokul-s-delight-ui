@@ -1,12 +1,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: gokul-s-delight-ui-config
-  namespace: opsera-gokul-s-delight-ui-dev
+  name: gokul-hello-config
+  namespace: opsera-gokul-hello-dev
   labels:
-    app: gokul-s-delight-ui
+    app: gokul-hello
     tenant: opsera
 data:
   ENVIRONMENT: "dev"
-  PORT: "8080"
   NODE_ENV: "production"

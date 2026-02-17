@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gokul-hello
+  namespace: opsera-gokul-hello-dev
+  labels:
+    app: gokul-hello
+    tenant: opsera
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - gokul-hello-dev.agent.opsera.dev
+    secretName: gokul-hello-tls
+  rules:
+  - host: gokul-hello-dev.agent.opsera.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gokul-hello
+            port:
+              number: 80

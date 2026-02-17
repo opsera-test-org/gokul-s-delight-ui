@@ -1,4 +1,4 @@
-name: Bootstrap Infrastructure - gokul-s-delight-ui
+name: Bootstrap Infrastructure - gokul-hello
 
 on:
   workflow_dispatch:
@@ -22,9 +22,9 @@ on:
         default: 'opsera-usw2-np'
 
 env:
-  APP_NAME: gokul-s-delight-ui
+  APP_NAME: gokul-hello
   TENANT: opsera
-  NAMESPACE: opsera-gokul-s-delight-ui-dev
+  NAMESPACE: opsera-gokul-hello-dev
 
 jobs:
   bootstrap:

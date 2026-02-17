@@ -1,0 +1,37 @@
+apiVersion: opsera.io/v1
+kind: OpseraConfig
+metadata:
+  name: gokul-hello
+  tenant: opsera
+spec:
+  application:
+    name: gokul-hello
+    framework: vite-react-typescript
+    buildCommand: npm run build
+    outputDir: dist
+  
+  deployment:
+    cloud: aws
+    region: us-west-2
+    hubCluster: argocd-usw2
+    spokeCluster: opsera-usw2-np
+    argocdServer: argocd-usw2.agent.opsera.dev
+    domain: agent.opsera.dev
+  
+  environments:
+    - name: dev
+      namespace: opsera-gokul-hello-dev
+      strategy: rolling
+      replicas: 2
+      url: https://gokul-hello-dev.agent.opsera.dev
+  
+  pipeline:
+    version: v2.4
+    stages: 11
+    securityScanning: warn-only
+    vulnerabilityScanning: warn-only
+  
+  metadata:
+    createdBy: opsera-code-to-cloud-enterprise
+    version: 0.932
+    generatedAt: "2026-02-17"
