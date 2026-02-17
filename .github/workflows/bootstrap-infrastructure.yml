@@ -1,0 +1,149 @@
+name: Bootstrap Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - 'setup-all'
+          - 'setup-ecr'
+          - 'setup-argocd-connectivity'
+          - 'verify-only'
+        default: 'setup-all'
+
+env:
+  TENANT: opsera
+  APP_NAME: gokul-demo
+  AWS_REGION: us-west-2
+  HUB_CLUSTER: argocd-usw2
+  SPOKE_CLUSTER: opsera-usw2-np
+  ARGOCD_SERVER: argocd-usw2.agent.opsera.dev
+
+jobs:
+  bootstrap:
+    name: Bootstrap Infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        id: aws-account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: Setup ECR Repository
+        if: inputs.action == 'setup-all' || inputs.action == 'setup-ecr'
+        run: |
+          echo "Creating ECR repository: ${{ env.APP_NAME }}"
+          
+          # Check if repository exists
+          if aws ecr describe-repositories --repository-names ${{ env.APP_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "ECR repository already exists"
+          else
+            # Create repository
+            aws ecr create-repository \
+              --repository-name ${{ env.APP_NAME }} \
+              --region ${{ env.AWS_REGION }} \
+              --image-scanning-configuration scanOnPush=true \
+              --encryption-configuration encryptionType=AES256 \
+              --tags Key=tenant,Value=${{ env.TENANT }} \
+                     Key=app,Value=${{ env.APP_NAME }} \
+                     Key=managed-by,Value=github-actions
+            
+            echo "ECR repository created successfully"
+          fi
+          
+          # Set lifecycle policy to keep last 10 images
+          aws ecr put-lifecycle-policy \
+            --repository-name ${{ env.APP_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --lifecycle-policy-text '{
+              "rules": [{
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }]
+            }'
+          
+          echo "ECR_URI=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.APP_NAME }}" >> $GITHUB_ENV
+
+      - name: Setup ArgoCD Hub Connectivity
+        if: inputs.action == 'setup-all' || inputs.action == 'setup-argocd-connectivity'
+        run: |
+          echo "Setting up ArgoCD connectivity to spoke cluster..."
+          echo "Hub Cluster: ${{ env.HUB_CLUSTER }}"
+          echo "Spoke Cluster: ${{ env.SPOKE_CLUSTER }}"
+          echo "ArgoCD Server: ${{ env.ARGOCD_SERVER }}"
+          echo ""
+          echo "⚠️  MANUAL STEPS REQUIRED (One-time setup by platform team):"
+          echo ""
+          echo "1. Ensure VPC peering between hub and spoke clusters"
+          echo "2. Configure security groups for ArgoCD access"
+          echo "3. Verify spoke cluster is registered in ArgoCD:"
+          echo "   kubectl config use-context ${{ env.HUB_CLUSTER }}"
+          echo "   argocd cluster list | grep ${{ env.SPOKE_CLUSTER }}"
+          echo ""
+          echo "4. If not registered, add spoke cluster:"
+          echo "   kubectl config use-context ${{ env.SPOKE_CLUSTER }}"
+          echo "   kubectl create serviceaccount argocd-manager -n kube-system"
+          echo "   kubectl create clusterrolebinding argocd-manager-binding \\"
+          echo "     --clusterrole=cluster-admin \\"
+          echo "     --serviceaccount=kube-system:argocd-manager"
+          echo ""
+          echo "   kubectl config use-context ${{ env.HUB_CLUSTER }}"
+          echo "   argocd cluster add ${{ env.SPOKE_CLUSTER }} \\"
+          echo "     --name ${{ env.SPOKE_CLUSTER }} \\"
+          echo "     --upsert"
+          echo ""
+          echo "✓ Bootstrap instructions displayed"
+
+      - name: Verify Setup
+        if: always()
+        run: |
+          echo "=================================="
+          echo "Bootstrap Summary"
+          echo "=================================="
+          echo "Tenant: ${{ env.TENANT }}"
+          echo "Application: ${{ env.APP_NAME }}"
+          echo "AWS Region: ${{ env.AWS_REGION }}"
+          echo "AWS Account: ${{ steps.aws-account.outputs.account_id }}"
+          echo "Hub Cluster: ${{ env.HUB_CLUSTER }}"
+          echo "Spoke Cluster: ${{ env.SPOKE_CLUSTER }}"
+          echo "ArgoCD Server: ${{ env.ARGOCD_SERVER }}"
+          echo ""
+          echo "ECR Repository:"
+          if aws ecr describe-repositories --repository-names ${{ env.APP_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "  ✓ ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.APP_NAME }}"
+          else
+            echo "  ✗ Not found"
+          fi
+          echo ""
+          echo "=================================="
+          echo "Next Steps:"
+          echo "1. Ensure ArgoCD connectivity is configured"
+          echo "2. Run the dev-deploy workflow to deploy the application"
+          echo "=================================="

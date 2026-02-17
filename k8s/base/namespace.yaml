@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opsera-gokul-demo-dev
+  labels:
+    app: gokul-demo
+    tenant: opsera
+    environment: dev
