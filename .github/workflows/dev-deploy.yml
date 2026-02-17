@@ -309,7 +309,7 @@ jobs:
 
       - name: Update Kustomization
         run: |
-          cd k8s/base
+          cd .opsera-gokul-demo/base
           
           ECR_URI="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.APP_NAME }}"
           
@@ -327,7 +327,7 @@ jobs:
           git pull --rebase origin main || true
           
           # Stage changes
-          git add k8s/base/kustomization.yaml
+          git add .opsera-gokul-demo/base/kustomization.yaml
           
           # Check if there are changes to commit
           if git diff --quiet --staged; then
@@ -392,7 +392,7 @@ jobs:
       - name: Create/Update ArgoCD Application
         run: |
           # Idempotent creation
-          kubectl apply -f k8s/argocd/application-dev.yaml
+          kubectl apply -f .opsera-gokul-demo/argocd/application-dev.yaml
           
           echo "✓ ArgoCD Application created/updated: gokul-demo-dev"
 

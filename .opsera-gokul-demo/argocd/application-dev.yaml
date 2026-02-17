@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/opsera-test-org/gokul-s-delight-ui.git
     targetRevision: main
-    path: k8s/overlays/dev
+    path: .opsera-gokul-demo/overlays/dev
   destination:
     name: opsera-usw2-np
     namespace: opsera-gokul-demo-dev
