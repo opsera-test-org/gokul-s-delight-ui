@@ -14,5 +14,5 @@ labels:
 
 images:
 - name: PLACEHOLDER_ECR_URI
-  newName: PLACEHOLDER_ECR_URI
-  newTag: latest
+  newName: 792373136340.dkr.ecr.us-west-2.amazonaws.com/gokul-s-delight-ui
+  newTag: 9d02371-20260217-104441
