@@ -92,7 +92,7 @@ jobs:
     - name: Build Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: .opsera-${{ env.APP_NAME }}/
+        context: .
         file: .opsera-${{ env.APP_NAME }}/Dockerfile
         push: false
         tags: ${{ env.APP_NAME }}:${{ steps.image-tag.outputs.tag }}
