@@ -10,7 +10,7 @@ resources:
 images:
   - name: PLACEHOLDER_ECR_URI
     newName: 123456789012.dkr.ecr.us-west-2.amazonaws.com/gokul-demo
-    newTag: 2c07dd4-20260217075507
+    newTag: 09eafc0-20260217080616
 
 commonLabels:
   app: gokul-demo
