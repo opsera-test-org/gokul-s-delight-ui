@@ -5,6 +5,7 @@ namespace: opsera-gokul-hello-dev
 
 resources:
   - ../../base
+  - ingress.yaml
 
 images:
   - name: PLACEHOLDER_ECR_URI
