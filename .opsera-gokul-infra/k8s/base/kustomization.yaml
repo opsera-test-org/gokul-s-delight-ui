@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: opsera-gokul-infra-dev
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap.yaml
+
+commonLabels:
+  app: gokul-infra
+  tenant: opsera
+  managed-by: kustomize
+
+images:
+  - name: PLACEHOLDER_ECR_URI
+    newName: PLACEHOLDER_ECR_URI
+    newTag: latest

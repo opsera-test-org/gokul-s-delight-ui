@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gokul-infra-config
+  namespace: opsera-gokul-infra-dev
+  labels:
+    app: gokul-infra
+    tenant: opsera
+data:
+  ENVIRONMENT: "dev"
+  APP_NAME: "gokul-infra"
+  TENANT: "opsera"
+  LOG_LEVEL: "info"

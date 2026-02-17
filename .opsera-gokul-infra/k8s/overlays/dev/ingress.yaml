@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gokul-infra
+  namespace: opsera-gokul-infra-dev
+  labels:
+    app: gokul-infra
+    tenant: opsera
+    environment: dev
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    external-dns.alpha.kubernetes.io/hostname: gokul-infra-dev.agent.opsera.dev
+    external-dns.alpha.kubernetes.io/ttl: "300"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - gokul-infra-dev.agent.opsera.dev
+    secretName: gokul-infra-dev-tls
+  rules:
+  - host: gokul-infra-dev.agent.opsera.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gokul-infra
+            port:
+              number: 80
